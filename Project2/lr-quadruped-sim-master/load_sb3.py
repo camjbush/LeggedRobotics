@@ -28,6 +28,8 @@
 #
 # Copyright (c) 2022 EPFL, Guillaume Bellegarda
 
+#Just want to see if I can get this to work
+
 import os, sys
 import gym
 import numpy as np
