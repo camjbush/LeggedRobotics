@@ -487,11 +487,13 @@ class QuadrupedGymEnv(gym.Env):
       x = xs[i]
       y = sideSign[i] * foot_y # careful of sign
       z = zs[i]
+      coord = [x,y,z]
 
       # call inverse kinematics to get corresponding joint angles
-      q_des = np.zeros(3) # [TODO]
+      q_des = ComputeInverseKinematics(i, coord) # [TODO] Have not verified
       # Add joint PD contribution to tau
-      tau = np.zeros(3) # [TODO] 
+      dq_des = np.zeros(len(dq))
+      tau = kp*(q_des-q)+kd*(dq_des-dq) # [TODO] 
 
       # add Cartesian PD contribution (as you wish)
       # tau +=
