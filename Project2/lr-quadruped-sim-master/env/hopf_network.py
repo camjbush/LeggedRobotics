@@ -104,9 +104,27 @@ class HopfNetwork():
     [TODO] update all coupling matrices
     """
     self.PHI_trot = np.zeros((4,4))
+    indices_trot = [(0, 1), (0, 2), (1, 0), (1, 3), (2, 0), (2, 3), (3, 1), (3, 2)]
+    self.PHI_trot[tuple(zip(*indices_trot))] = np.pi
+    self.PHI_trot[-2:] *= -1
+
     self.PHI_walk = np.zeros((4,4))
+    walk_values = [
+    [0, np.pi/2, np.pi, 3*np.pi/2],
+    [-np.pi/2, 0, np.pi/2, np.pi],
+    [-np.pi, -np.pi/2, 0, np.pi/2],
+    [-3*np.pi/2, -np.pi, -np.pi/2, 0]
+]   self.PHI_walk = np.array(walk_values)
+
     self.PHI_bound = np.zeros((4,4))
+    indices_bound = [(0, 2), (0, 3), (1, 2), (1, 3), (2, 0), (2, 1), (3, 0), (3, 1)]
+    self.PHI_bound[tuple(zip(*indices_bound))] = np.pi
+    self.PHI_bound[-2:] *= -1
+
     self.PHI_pace = np.zeros((4,4))
+    indices_pace = [(0, 1), (0, 3), (1, 0), (1, 2), (2, 1), (2, 3), (3, 0), (3, 2)]
+    self.PHI_pace[tuple(zip(*indices_pace))] = np.pi
+    self.PHI_pace[[1, 3], :] *= -1
 
     if gait == "TROT":
       self.PHI = self.PHI_trot
@@ -152,13 +170,14 @@ class HopfNetwork():
     X_dot = np.zeros((2,4))
 
     # loop through each leg's oscillator
+    # So X is a state matrix made up of row 0 (amplitudes) and row 1 (phases) with 4 columns coresponding to each leg
     for i in range(4):
       # get r_i, theta_i from X
-      r, theta = 0, 0 # [TODO]
+      r, theta = X[0,i], X[1,i] # [TODO] DONE
       # compute r_dot (Equation 6)
-      r_dot = 0 # [TODO]
+      r_dot = self.alpha*(self.mu-r^2)*r # [TODO] DONE
       # determine whether oscillator i is in swing or stance phase to set natural frequency omega_swing or omega_stance (see Section 3)
-      theta_dot = 0 # [TODO]
+      theta_dot = 0 # [TODO] Just adding nat frequency
 
       # loop through other oscillators to add coupling (Equation 7)
       if self._couple:

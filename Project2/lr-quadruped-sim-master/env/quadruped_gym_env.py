@@ -442,13 +442,13 @@ class QuadrupedGymEnv(gym.Env):
       # get Jacobian and foot position in leg frame for leg i (see ComputeJacobianAndPosition() in quadruped.py)
       J , foot_pos = self.robot.ComputeJacobianAndPosition(i)
       # desired foot position i (from RL above)
-      Pd = des_foot_pos # [TODO]
+      Pd = des_foot_pos # [TODO] DONE
       # desired foot velocity i
       vd = np.zeros(3) 
       # foot velocity in leg frame i (Equation 2)
       v = np.dot(J,qd)
       # calculate torques with Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
-      tau = np.multiply(J.T, (kpCartesian * (Pd - foot_pos) + kdCartesian * (vd - v))) # [TODO]
+      tau = np.multiply(J.T, (kpCartesian * (Pd - foot_pos) + kdCartesian * (vd - v))) # [TODO] DONE
 
       action[3*i:3*i+3] = tau
 
@@ -490,13 +490,13 @@ class QuadrupedGymEnv(gym.Env):
       coord = [x,y,z]
 
       # call inverse kinematics to get corresponding joint angles
-      q_des = self.robot.ComputeInverseKinematics(i, coord) # [TODO] Have not verified
+      q_des = self.robot.ComputeInverseKinematics(i, coord) # [TODO] DONE but have not verified
       # Add joint PD contribution to tau
       dq_des = np.zeros(len(dq))
       print(kp)
       print(q_des)
       print(q)
-      tau = kp[i*3:i*3+3]*(q_des-q[i*3:i*3+3])+kd[i*3:i*3+3]*(dq_des[i*3:i*3+3]-dq[i*3:i*3+3]) # [TODO] 
+      tau = kp[i*3:i*3+3]*(q_des-q[i*3:i*3+3])+kd[i*3:i*3+3]*(dq_des[i*3:i*3+3]-dq[i*3:i*3+3]) # [TODO] #Done but have not verified
 
       # add Cartesian PD contribution (as you wish)
       # tau +=
@@ -883,7 +883,7 @@ class QuadrupedGymEnv(gym.Env):
 
 
 def test_env():
-  env = QuadrupedGymEnv(render=True, 
+  env = QuadrupedGymEnv(render=False, 
                         on_rack=False,
                         motor_control_mode='CPG',
                         action_repeat=100,
