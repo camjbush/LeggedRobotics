@@ -48,7 +48,7 @@ import random
 random.seed(10)
 # quadruped and configs
 import quadruped
-import ComputeJacobianAndPosition from quadraped
+#import ComputeJacobianAndPosition from quadraped
 import configs_a1 as robot_config
 from hopf_network import HopfNetwork
 
@@ -123,8 +123,8 @@ class QuadrupedGymEnv(gym.Env):
       distance_weight=2,
       energy_weight=0.008,
       motor_control_mode="PD",
-      task_env="LR_COURSE_TASK",
-      observation_space_mode="LR_COURSE_OBS",
+      task_env="FWD_LOCOMOTION",
+      observation_space_mode="DEFAULT",
       on_rack=False,
       render=False,
       record_video=False,
@@ -440,7 +440,7 @@ class QuadrupedGymEnv(gym.Env):
     action = np.zeros(12)
     for i in range(4):
       # get Jacobian and foot position in leg frame for leg i (see ComputeJacobianAndPosition() in quadruped.py)
-      J , foot_pos = ComputeJacobianAndPosition(i)
+      J , foot_pos = self.robot.ComputeJacobianAndPosition(i)
       # desired foot position i (from RL above)
       Pd = des_foot_pos # [TODO]
       # desired foot velocity i
@@ -448,7 +448,7 @@ class QuadrupedGymEnv(gym.Env):
       # foot velocity in leg frame i (Equation 2)
       v = np.dot(J,qd)
       # calculate torques with Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
-      tau = np.dot(J.T, (kpCartesian * (Pd - foot_pos) + kdCartesian * (vd - v))) # [TODO]
+      tau = np.multiply(J.T, (kpCartesian * (Pd - foot_pos) + kdCartesian * (vd - v))) # [TODO]
 
       action[3*i:3*i+3] = tau
 
@@ -490,10 +490,13 @@ class QuadrupedGymEnv(gym.Env):
       coord = [x,y,z]
 
       # call inverse kinematics to get corresponding joint angles
-      q_des = ComputeInverseKinematics(i, coord) # [TODO] Have not verified
+      q_des = self.robot.ComputeInverseKinematics(i, coord) # [TODO] Have not verified
       # Add joint PD contribution to tau
       dq_des = np.zeros(len(dq))
-      tau = kp*(q_des-q)+kd*(dq_des-dq) # [TODO] 
+      print(kp)
+      print(q_des)
+      print(q)
+      tau = kp[i*3:i*3+3]*(q_des-q[i*3:i*3+3])+kd[i*3:i*3+3]*(dq_des[i*3:i*3+3]-dq[i*3:i*3+3]) # [TODO] 
 
       # add Cartesian PD contribution (as you wish)
       # tau +=
@@ -881,8 +884,8 @@ class QuadrupedGymEnv(gym.Env):
 
 def test_env():
   env = QuadrupedGymEnv(render=True, 
-                        on_rack=True,
-                        motor_control_mode='PD',
+                        on_rack=False,
+                        motor_control_mode='CPG',
                         action_repeat=100,
                         )
 
