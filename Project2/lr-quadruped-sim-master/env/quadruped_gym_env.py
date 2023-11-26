@@ -48,6 +48,7 @@ import random
 random.seed(10)
 # quadruped and configs
 import quadruped
+import ComputeJacobianAndPosition from quadraped
 import configs_a1 as robot_config
 from hopf_network import HopfNetwork
 
@@ -122,8 +123,8 @@ class QuadrupedGymEnv(gym.Env):
       distance_weight=2,
       energy_weight=0.008,
       motor_control_mode="PD",
-      task_env="FWD_LOCOMOTION",
-      observation_space_mode="DEFAULT",
+      task_env="LR_COURSE_TASK",
+      observation_space_mode="LR_COURSE_OBS",
       on_rack=False,
       render=False,
       record_video=False,
@@ -221,11 +222,16 @@ class QuadrupedGymEnv(gym.Env):
                                          -self._robot_config.VELOCITY_LIMITS,
                                          np.array([-1.0]*4))) -  OBSERVATION_EPS)
     elif self._observation_space_mode == "LR_COURSE_OBS":
+      # This is where we define our own obersvation space
       # [TODO] Set observation upper and lower ranges. What are reasonable limits? 
       # Note 50 is arbitrary below, you may have more or less
       # if using CPG-RL, remember to include limits on these
-      observation_high = (np.zeros(50) + OBSERVATION_EPS)
-      observation_low = (np.zeros(50) -  OBSERVATION_EPS)
+      observation_high = (np.concatenate((self._robot_config.UPPER_ANGLE_JOINT,
+                                         self._robot_config.VELOCITY_LIMITS,
+                                         np.array([1.0]*4))) +  OBSERVATION_EPS)
+      observation_low = (np.concatenate((self._robot_config.LOWER_ANGLE_JOINT,
+                                         -self._robot_config.VELOCITY_LIMITS,
+                                         np.array([-1.0]*4))) -  OBSERVATION_EPS)
     else:
       raise ValueError("observation space not defined or not intended")
 
@@ -358,8 +364,26 @@ class QuadrupedGymEnv(gym.Env):
     
   def _reward_lr_course(self):
     """ Implement your reward function here. How will you improve upon the above? """
-    # [TODO] add your reward function. 
-    return 0
+    '''Just Added the code from flag_run'''
+    #Ideally we want to command A1 to run in any direction while expending minimal energy
+    #How will you construct your reward function?
+    curr_dist_to_goal, angle = self.get_distance_and_angle_to_goal()
+
+    # minimize distance to goal (we want to move towards the goal)
+    dist_reward = 10 * ( self._prev_pos_to_goal - curr_dist_to_goal)
+    # minimize yaw deviation to goal (necessary?)
+    yaw_reward = 0 # -0.01 * np.abs(angle) 
+
+    # minimize energy 
+    energy_reward = 0 
+    for tau,vel in zip(self._dt_motor_torques,self._dt_motor_velocities):
+      energy_reward += np.abs(np.dot(tau,vel)) * self._time_step
+
+    reward = dist_reward \
+            + yaw_reward \
+            - 0.001 * energy_reward 
+    
+    return max(reward,0)
 
   def _reward(self):
     """ Get reward depending on task"""
@@ -416,15 +440,15 @@ class QuadrupedGymEnv(gym.Env):
     action = np.zeros(12)
     for i in range(4):
       # get Jacobian and foot position in leg frame for leg i (see ComputeJacobianAndPosition() in quadruped.py)
-      # [TODO]
+      J , foot_pos = ComputeJacobianAndPosition(i)
       # desired foot position i (from RL above)
-      Pd = np.zeros(3) # [TODO]
+      Pd = des_foot_pos # [TODO]
       # desired foot velocity i
       vd = np.zeros(3) 
       # foot velocity in leg frame i (Equation 2)
-      # [TODO]
+      v = np.dot(J,qd)
       # calculate torques with Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
-      tau = np.zeros(3) # [TODO]
+      tau = np.dot(J.T, (kpCartesian * (Pd - foot_pos) + kdCartesian * (vd - v))) # [TODO]
 
       action[3*i:3*i+3] = tau
 
