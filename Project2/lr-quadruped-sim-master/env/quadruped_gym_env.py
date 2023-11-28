@@ -883,9 +883,9 @@ class QuadrupedGymEnv(gym.Env):
 
 
 def test_env():
-  env = QuadrupedGymEnv(render=False, 
+  env = QuadrupedGymEnv(render=True, 
                         on_rack=False,
-                        motor_control_mode='CPG',
+                        motor_control_mode='PD',
                         action_repeat=100,
                         )
 

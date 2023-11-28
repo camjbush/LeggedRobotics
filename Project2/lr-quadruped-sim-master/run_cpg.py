@@ -46,7 +46,7 @@ from env.hopf_network import HopfNetwork
 from env.quadruped_gym_env import QuadrupedGymEnv
 
 
-ADD_CARTESIAN_PD = True
+ADD_CARTESIAN_PD = False
 TIME_STEP = 0.001
 foot_y = 0.0838 # this is the hip length 
 sideSign = np.array([-1, 1, -1, 1]) # get correct hip sign (body right is negative)
@@ -83,9 +83,9 @@ for j in range(TEST_STEPS):
   action = np.zeros(12) 
   # get desired foot positions from CPG 
   xs,zs = cpg.update()
-  # [TODO] get current motor angles and velocities for joint PD, see GetMotorAngles(), GetMotorVelocities() in quadruped.py
-  # q = env.robot.GetMotorAngles()
-  # dq = 
+  # [TODO] get current motor angles and velocities for joint PD, see GetMotorAngles(), GetMotorVelocities() in quadruped.py____ DONE
+  q = env.robot.GetMotorAngles()
+  dq = env.robot.GetMotorVelocities() 
 
   # loop through desired foot positions and calculate torques
   for i in range(4):
@@ -94,18 +94,22 @@ for j in range(TEST_STEPS):
     # get desired foot i pos (xi, yi, zi) in leg frame
     leg_xyz = np.array([xs[i],sideSign[i] * foot_y,zs[i]])
     # call inverse kinematics to get corresponding joint angles (see ComputeInverseKinematics() in quadruped.py)
-    leg_q = np.zeros(3) # [TODO] 
+    leg_q = env.robot.ComputeInverseKinematics(i,leg_xyz) # [TODO] 
     # Add joint PD contribution to tau for leg i (Equation 4)
-    tau += np.zeros(3) # [TODO] 
+    dq_des = np.zeros(3)
+    tau += kp*(leg_q-q[i*3:i*3+3])+kd*(dq_des-dq[i*3:i*3+3]) # [TODO] 
 
     # add Cartesian PD contribution
     if ADD_CARTESIAN_PD:
       # Get current Jacobian and foot position in leg frame (see ComputeJacobianAndPosition() in quadruped.py)
-      # [TODO] 
+      J , foot_pos = env.robot.ComputeJacobianAndPosition(i)
       # Get current foot velocity in leg frame (Equation 2)
-      # [TODO] 
+      vd = np.zeros(3) 
+      # foot velocity in leg frame i (Equation 2)
+      v = np.dot(J,dq)
+      #desired foot position
       # Calculate torque contribution from Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
-      tau += np.zeros(3) # [TODO]
+      tau += np.multiply(J.T, (kpCartesian * (leg_xyz - foot_pos) + kdCartesian * (vd - v))) # [TODO]
 
     # Set tau for legi in action vector
     action[3*i:3*i+3] = tau
@@ -121,7 +125,7 @@ for j in range(TEST_STEPS):
 # PLOTS
 #####################################################
 # example
-# fig = plt.figure()
-# plt.plot(t,joint_pos[1,:], label='FR thigh')
-# plt.legend()
-# plt.show()
+fig = plt.figure()
+plt.plot(t,q[1,:], label='FR thigh')
+plt.legend()
+plt.show()
