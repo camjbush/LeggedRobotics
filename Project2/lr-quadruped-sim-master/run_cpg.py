@@ -31,7 +31,7 @@
 """ Run CPG """
 import time
 import numpy as np
-import matplotlib
+import matplotlib as plt
 
 # adapt as needed for your system
 # from sys import platform
@@ -66,6 +66,10 @@ cpg = HopfNetwork(time_step=TIME_STEP)
 
 TEST_STEPS = int(10 / (TIME_STEP))
 t = np.arange(TEST_STEPS)*TIME_STEP
+hopf_vars = np.zeros((8,TEST_STEPS))
+joint_pos = np.zeros((12,TEST_STEPS))
+base_lin_vel = np.zeros((3,TEST_STEPS))
+start_time = time.time()
 
 # [TODO] initialize data structures to save CPG and robot states
 
@@ -99,17 +103,17 @@ for j in range(TEST_STEPS):
     dq_des = np.zeros(3)
     tau += kp*(leg_q-q[i*3:i*3+3])+kd*(dq_des-dq[i*3:i*3+3]) # [TODO] 
 
-    # add Cartesian PD contribution
+    # add Cartesian PD contribution (HAVENT COMPLETED YET)
     if ADD_CARTESIAN_PD:
       # Get current Jacobian and foot position in leg frame (see ComputeJacobianAndPosition() in quadruped.py)
       J , foot_pos = env.robot.ComputeJacobianAndPosition(i)
       # Get current foot velocity in leg frame (Equation 2)
       vd = np.zeros(3) 
       # foot velocity in leg frame i (Equation 2)
-      v = np.dot(J,dq)
+      v = np.dot(J[i,:],dq[i*3:i*3+3])
       #desired foot position
       # Calculate torque contribution from Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
-      tau += np.multiply(J.T, (kpCartesian * (leg_xyz - foot_pos) + kdCartesian * (vd - v))) # [TODO]
+      tau += np.multiply(J.T, (kpCartesian @ (leg_xyz - foot_pos) + kdCartesian @ (vd - v))) # [TODO]
 
     # Set tau for legi in action vector
     action[3*i:3*i+3] = tau
@@ -117,15 +121,66 @@ for j in range(TEST_STEPS):
   # send torques to robot and simulate TIME_STEP seconds 
   env.step(action) 
 
-  # [TODO] save any CPG or robot states
+   # save any CPG or robot states
+  joint_pos[:,j] = env.robot.GetMotorAngles()
+  hopf_vars[:,j] = cpg.X[0:2,:].flatten('F')
+  base_lin_vel[:,j] = env.robot.GetBaseLinearVelocity()
+  # time.sleep(0.01)
 
 
 
+print('TOTAL TIME', time.time() - start_time) 
 ##################################################### 
 # PLOTS
 #####################################################
-# example
+# fig = plt.figure()
+
+# Base velocity 
+plt.figure()
+plt.plot(t,base_lin_vel[0,:], label='vx')
+plt.plot(t,base_lin_vel[1,:], label='vy')
+plt.plot(t,base_lin_vel[2,:], label='vz')
+plt.title('Global Base Velocity')
+plt.legend()
+plt.show()
+
+# Joint angles 
+plt.subplot(2, 1, 1)
+plt.plot(t,joint_pos[1,:], label='FR hip')
+plt.plot(t,joint_pos[2,:], label='FR knee')
+plt.grid()
+
+plt.subplot(2, 1, 2)
+plt.plot(t,joint_pos[7,:], label='RR hip')
+plt.plot(t,joint_pos[8,:], label='RR knee')
+plt.grid(which='both')
+plt.legend()
+plt.show()
+
+
+#####################################################
 fig = plt.figure()
-plt.plot(t,q[1,:], label='FR thigh')
+plt.subplot(2, 2, 1)
+plt.plot(t,hopf_vars[0,:], label='hip FR r')
+plt.plot(t,hopf_vars[1,:], label='hip FR phi')
+plt.grid(which='both')
+plt.legend()
+
+plt.subplot(2, 2, 2)
+plt.plot(t,hopf_vars[2,:], label='hip FL r')
+plt.plot(t,hopf_vars[3,:], label='hip FL phi')
+plt.grid(which='both')
+plt.legend()
+
+plt.subplot(2, 2, 3)
+plt.plot(t,hopf_vars[4,:], label='hip RR r')
+plt.plot(t,hopf_vars[5,:], label='hip RR phi')
+plt.grid(which='both')
+plt.legend()
+
+plt.subplot(2, 2, 4)
+plt.plot(t,hopf_vars[6,:], label='hip RR r')
+plt.plot(t,hopf_vars[7,:], label='hip RR phi')
+plt.grid(which='both')
 plt.legend()
 plt.show()
