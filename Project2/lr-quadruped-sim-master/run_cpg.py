@@ -137,29 +137,28 @@ print('TOTAL TIME', time.time() - start_time)
 
 # Base velocity 
 plt.figure()
-plt.plot(t,base_lin_vel[0,:], label='vx')
-plt.plot(t,base_lin_vel[1,:], label='vy')
-plt.plot(t,base_lin_vel[2,:], label='vz')
+plt.plot(t,base_lin_vel[0,:], label='x velocity')
+plt.plot(t,base_lin_vel[1,:], label='y velocity')
+plt.plot(t,base_lin_vel[2,:], label='z velocity')
 plt.title('Global Base Velocity')
 plt.legend()
-plt.show()
 
 # Joint angles 
+plt.figure()
 plt.subplot(2, 1, 1)
-plt.plot(t,joint_pos[1,:], label='FR hip')
-plt.plot(t,joint_pos[2,:], label='FR knee')
+plt.plot(t,joint_pos[1,:], label='FR Hip Joint Angles')
+plt.plot(t,joint_pos[2,:], label='FR Knee Joint Angles')
 plt.grid()
 
 plt.subplot(2, 1, 2)
-plt.plot(t,joint_pos[7,:], label='RR hip')
-plt.plot(t,joint_pos[8,:], label='RR knee')
+plt.plot(t,joint_pos[7,:], label='RR Hip Joint Angles')
+plt.plot(t,joint_pos[8,:], label='RR knee Joint Angles')
 plt.grid(which='both')
 plt.legend()
-plt.show()
 
 
 #####################################################
-fig = plt.figure()
+plt.figure()
 plt.subplot(2, 2, 1)
 plt.plot(t,hopf_vars[0,:], label='hip FR r')
 plt.plot(t,hopf_vars[1,:], label='hip FR phi')
