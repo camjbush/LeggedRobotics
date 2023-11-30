@@ -61,7 +61,7 @@ class HopfNetwork():
                 robot_height=0.3,        # in nominal case (standing) 
                 des_step_len=0.05,       # desired step length 
                 max_step_len_rl=0.1,     # max step length, for RL scaling 
-                use_RL=False             # whether to learn parameters with RL 
+                use_RL=False,             # whether to learn parameters with RL 
                 ):
     
     ###############
@@ -164,6 +164,9 @@ class HopfNetwork():
       # RL uses amplitude to set max step length
       r = np.clip(self.X[0,:],MU_LOW,MU_UPP) 
       return -self._max_step_len_rl * (r - MU_LOW) * np.cos(self.X[1,:]), z
+    
+    self.r = self.get_r()
+    
 
       
         
@@ -173,6 +176,7 @@ class HopfNetwork():
     X = self.X.copy()
     X_dot_prev = self.X_dot.copy() 
     X_dot = np.zeros((2,4))
+  
 
     # loop through each leg's oscillator
     # So X is a state matrix made up of row 0 (amplitudes) and row 1 (phases) with 4 columns coresponding to each leg
