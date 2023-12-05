@@ -45,13 +45,22 @@ from matplotlib import pyplot as plt
 from env.hopf_network import HopfNetwork
 from env.quadruped_gym_env import QuadrupedGymEnv
 
+def find_local_minima(arr):
+    minima_indices = []
+
+    # Check each element in the array except the first and last
+    for i in range(1, len(arr) - 1):
+        if arr[i] < arr[i - 1] and arr[i] < arr[i + 1]:
+            minima_indices.append(i)
+
+    return minima_indices
 
 ADD_CARTESIAN_PD = False
 TIME_STEP = 0.001
 foot_y = 0.0838 # this is the hip length 
 sideSign = np.array([-1, 1, -1, 1]) # get correct hip sign (body right is negative)
 
-env = QuadrupedGymEnv(render=True,              # visualize
+env = QuadrupedGymEnv(render=False,              # visualize
                     on_rack=False,              # useful for debugging! 
                     isRLGymInterface=False,     # not using RL
                     time_step=TIME_STEP,
@@ -67,8 +76,9 @@ cpg = HopfNetwork(time_step=TIME_STEP)
 TEST_STEPS = int(10 / (TIME_STEP))
 t = np.arange(TEST_STEPS)*TIME_STEP
 hopf_vars = np.zeros((8,TEST_STEPS))
+hopf_vars_dot = np.zeros((8,TEST_STEPS))
 joint_pos = np.zeros((12,TEST_STEPS))
-base_lin_vel = np.zeros((3,TEST_STEPS))
+rob_vel = np.zeros((3,TEST_STEPS))
 start_time = time.time()
 
 # [TODO] initialize data structures to save CPG and robot states
@@ -81,12 +91,18 @@ kd=np.array([2,2,2])
 # Cartesian PD gains
 kpCartesian = np.diag([500]*3)
 kdCartesian = np.diag([20]*3)
-
+des_foot_pos = np.zeros([3,TEST_STEPS])
+actual_foot_pos = np.zeros([3,TEST_STEPS])
 for j in range(TEST_STEPS):
   # initialize torque array to send to motors
   action = np.zeros(12) 
   # get desired foot positions from CPG 
   xs,zs = cpg.update()
+  des_foot_pos[1,:] = -foot_y
+  des_foot_pos[0,j],des_foot_pos[2,j] = xs[0],zs[0]
+  _, actual_foot_pos[:,j] = env.robot.ComputeJacobianAndPosition(0)
+
+
   # [TODO] get current motor angles and velocities for joint PD, see GetMotorAngles(), GetMotorVelocities() in quadruped.py____ DONE
   q = env.robot.GetMotorAngles()
   dq = env.robot.GetMotorVelocities() 
@@ -124,63 +140,115 @@ for j in range(TEST_STEPS):
    # save any CPG or robot states
   joint_pos[:,j] = env.robot.GetMotorAngles()
   hopf_vars[:,j] = cpg.X[0:2,:].flatten('F')
-  base_lin_vel[:,j] = env.robot.GetBaseLinearVelocity()
+  hopf_vars_dot[:,j] = cpg.X_dot[0:2,:].flatten('F')
+  rob_vel[:,j] = env.robot.GetBaseLinearVelocity()
+  average_body_vel = np.average(rob_vel)
   # time.sleep(0.01)
 
-
-
+step_times = find_local_minima(hopf_vars[1,:])
 print('TOTAL TIME', time.time() - start_time) 
+low_bound = step_times[10]
+up_bound = step_times[15]
+
+
 ##################################################### 
 # PLOTS
 #####################################################
 # fig = plt.figure()
 
 # Base velocity 
+'''
 plt.figure()
-plt.plot(t,base_lin_vel[0,:], label='vx')
-plt.plot(t,base_lin_vel[1,:], label='vy')
-plt.plot(t,base_lin_vel[2,:], label='vz')
+plt.plot(t,rob_vel[0,:], label='x velocity')
+plt.plot(t,rob_vel[1,:], label='y velocity')
+plt.plot(t,rob_vel[2,:], label='z velocity')
 plt.title('Global Base Velocity')
 plt.legend()
-plt.show()
 
 # Joint angles 
+plt.figure()
 plt.subplot(2, 1, 1)
-plt.plot(t,joint_pos[1,:], label='FR hip')
-plt.plot(t,joint_pos[2,:], label='FR knee')
+plt.plot(t,joint_pos[1,:], label='FR Hip Joint Angles')
+plt.plot(t,joint_pos[2,:], label='FR Knee Joint Angles')
 plt.grid()
 
 plt.subplot(2, 1, 2)
-plt.plot(t,joint_pos[7,:], label='RR hip')
-plt.plot(t,joint_pos[8,:], label='RR knee')
+plt.plot(t,joint_pos[7,:], label='RR Hip Joint Angles')
+plt.plot(t,joint_pos[8,:], label='RR knee Joint Angles')
 plt.grid(which='both')
 plt.legend()
-plt.show()
+'''
 
 
 #####################################################
-fig = plt.figure()
+plt.figure()
 plt.subplot(2, 2, 1)
-plt.plot(t,hopf_vars[0,:], label='hip FR r')
-plt.plot(t,hopf_vars[1,:], label='hip FR phi')
+plt.plot(t[low_bound:up_bound],hopf_vars[0,low_bound:up_bound], label='FR r')
+plt.plot(t[low_bound:up_bound],hopf_vars[1,low_bound:up_bound], label='FR phi')
+plt.plot(t[low_bound:up_bound],hopf_vars_dot[0,low_bound:up_bound], label='FR r_dot')
+plt.plot(t[low_bound:up_bound],hopf_vars_dot[1,low_bound:up_bound], label='FR phi_dot')
 plt.grid(which='both')
 plt.legend()
 
 plt.subplot(2, 2, 2)
-plt.plot(t,hopf_vars[2,:], label='hip FL r')
-plt.plot(t,hopf_vars[3,:], label='hip FL phi')
+plt.plot(t[low_bound:up_bound],hopf_vars[2,low_bound:up_bound], label='FL r')
+plt.plot(t[low_bound:up_bound],hopf_vars[3,low_bound:up_bound], label='FL phi')
+plt.plot(t[low_bound:up_bound],hopf_vars_dot[2,low_bound:up_bound], label='FR r_dot')
+plt.plot(t[low_bound:up_bound],hopf_vars_dot[3,low_bound:up_bound], label='FR phi_dot')
 plt.grid(which='both')
 plt.legend()
 
 plt.subplot(2, 2, 3)
-plt.plot(t,hopf_vars[4,:], label='hip RR r')
-plt.plot(t,hopf_vars[5,:], label='hip RR phi')
+plt.plot(t[low_bound:up_bound],hopf_vars[4,low_bound:up_bound], label='RR r')
+plt.plot(t[low_bound:up_bound],hopf_vars[5,low_bound:up_bound], label='RR phi')
+plt.plot(t[low_bound:up_bound],hopf_vars_dot[4,low_bound:up_bound], label='FR r_dot')
+plt.plot(t[low_bound:up_bound],hopf_vars_dot[5,low_bound:up_bound], label='FR phi_dot')
 plt.grid(which='both')
 plt.legend()
 
 plt.subplot(2, 2, 4)
-plt.plot(t,hopf_vars[6,:], label='hip RR r')
-plt.plot(t,hopf_vars[7,:], label='hip RR phi')
+plt.plot(t[low_bound:up_bound],hopf_vars[6,low_bound:up_bound], label='RR r')
+plt.plot(t[low_bound:up_bound],hopf_vars[7,low_bound:up_bound], label='RR phi')
+plt.plot(t[low_bound:up_bound],hopf_vars_dot[6,low_bound:up_bound], label='FR r_dot')
+plt.plot(t[low_bound:up_bound],hopf_vars_dot[7,low_bound:up_bound], label='FR phi_dot')
 plt.grid(which='both')
+plt.legend()
+plt.show()
+
+plt.figure()
+plt.subplot(1,2,1)
+plt.plot(t,des_foot_pos[0],label='x position of foot')
+plt.plot(t,des_foot_pos[1],label='y position of foot')
+plt.plot(t,des_foot_pos[2],label='z position of foot')
+plt.subplot(1,2,2)
+plt.plot(t,actual_foot_pos[0],label='x position of foot')
+plt.plot(t,actual_foot_pos[1],label='y position of foot')
+plt.plot(t,actual_foot_pos[2],label='z position of foot')
+plt.legend()
+plt.show()
+
+
+print('Desired foot position: ',des_foot_pos)
+print('Actual foot position: ',actual_foot_pos)
+
+
+
+
+plt.figure()
+ax = plt.axes(projection='3d')
+# Plotting points in 3D
+ax.scatter(des_foot_pos[0], des_foot_pos[1], des_foot_pos[2], c='blue', marker='o', label='Desired Foot Position')
+ax.scatter(actual_foot_pos[0], actual_foot_pos[1], actual_foot_pos[2], c='red', marker='o', label='Actual Foot Position')
+
+
+# Connecting points with lines
+ax.plot(des_foot_pos[0, :], des_foot_pos[1, :], des_foot_pos[2, :], color='blue', linestyle='-', linewidth=1)
+ax.plot(actual_foot_pos[0, :], actual_foot_pos[1, :], actual_foot_pos[2, :], color='red', linestyle='-', linewidth=1)
+
+
+ax.set_xlabel('X Axis')
+ax.set_ylabel('Y Axis')
+ax.set_zlabel('Z Axis')
+
 plt.legend()
 plt.show()
