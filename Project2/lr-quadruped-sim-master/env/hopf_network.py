@@ -49,7 +49,7 @@ class HopfNetwork():
   """
   def __init__(self,
                 mu=1**2,                 # intrinsic amplitude, converges to sqrt(mu)
-                omega_swing=5*2*np.pi,   # frequency in swing phase (can edit)
+                omega_swing=10*2*np.pi,  # frequency in swing phase (can edit)
                 omega_stance=2*2*np.pi,  # frequency in stance phase (can edit)
                 gait="TROT",             # Gait, can be TROT, WALK, PACE, BOUND, etc.
                 alpha=50,                # amplitude convergence factor
@@ -77,6 +77,7 @@ class HopfNetwork():
     self._couple = couple
     self._coupling_strength = coupling_strength
     self._dt = time_step
+    self.step_count = 0
     self._set_gait(gait)
 
     # set oscillator initial conditions  
@@ -180,6 +181,7 @@ class HopfNetwork():
 
     # loop through each leg's oscillator
     # So X is a state matrix made up of row 0 (amplitudes) and row 1 (phases) with 4 columns coresponding to each leg
+    gait_cycle = 0
     for i in range(4):
       # get r_i, theta_i from X
       r, theta = X[:,i] # [TODO] DONE
