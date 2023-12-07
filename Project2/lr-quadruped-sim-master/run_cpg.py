@@ -55,19 +55,19 @@ def find_local_minima(arr):
 
     return minima_indices
 
-ADD_CARTESIAN_PD = False
+ADD_CARTESIAN_PD = True
 TIME_STEP = 0.001
 foot_y = 0.0838 # this is the hip length 
 sideSign = np.array([-1, 1, -1, 1]) # get correct hip sign (body right is negative)
 
-env = QuadrupedGymEnv(render=False,              # visualize
+env = QuadrupedGymEnv(render=True,              # visualize
                     on_rack=False,              # useful for debugging! 
                     isRLGymInterface=False,     # not using RL
                     time_step=TIME_STEP,
                     action_repeat=1,
                     motor_control_mode="TORQUE",
                     add_noise=False,    # start in ideal conditions
-                    # record_video=True
+                    record_video=False
                     )
 
 # initialize Hopf Network, supply gait
@@ -86,11 +86,12 @@ start_time = time.time()
 
 ############## Sample Gains
 # joint PD gains
-kp=np.array([100,100,100])
-kd=np.array([2,2,2])
+kp=np.array([100,100,100])*10
+kd=np.array([2,2,2])*10
 # Cartesian PD gains
 kpCartesian = np.diag([500]*3)
 kdCartesian = np.diag([20]*3)
+print(kpCartesian)
 
 #Setup of tracked states
 des_foot_pos = np.zeros([3,TEST_STEPS])
@@ -135,10 +136,12 @@ for j in range(TEST_STEPS):
       # Get current foot velocity in leg frame (Equation 2)
       vd = np.zeros(3) 
       # foot velocity in leg frame i (Equation 2)
-      v = np.dot(J[i,:],dq[i*3:i*3+3])
+      v = np.dot(J,dq[i*3:i*3+3])
       #desired foot position
       # Calculate torque contribution from Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
-      tau += np.multiply(J.T, (kpCartesian @ (leg_xyz - foot_pos) + kdCartesian @ (vd - v))) # [TODO]
+      #print(np.shape(np.multiply(J.T, (kpCartesian @ (leg_xyz - foot_pos) + kdCartesian @ (vd - v)))))
+      #print(kpCartesian @ (leg_xyz - foot_pos))
+      tau += J.T @ (kpCartesian @ (leg_xyz - foot_pos) + kdCartesian @ (vd - v)) # [TODO]
 
     # Set tau for legi in action vector
     action[3*i:3*i+3] = tau
@@ -151,7 +154,7 @@ for j in range(TEST_STEPS):
   hopf_vars[:,j] = cpg.X[0:2,:].flatten('F')
   hopf_vars_dot[:,j] = cpg.X_dot[0:2,:].flatten('F')
   rob_vel[:,j] = env.robot.GetBaseLinearVelocity()
-  average_body_vel = np.average(rob_vel)
+  average_body_vel = np.average(rob_vel[0,:])
 
 
 
@@ -209,8 +212,8 @@ plt.legend()
 plt.subplot(2, 2, 2)
 plt.plot(t[low_bound:up_bound],hopf_vars[2,low_bound:up_bound], label='FL r')
 plt.plot(t[low_bound:up_bound],hopf_vars[3,low_bound:up_bound], label='FL phi')
-plt.plot(t[low_bound:up_bound],hopf_vars_dot[2,low_bound:up_bound], label='FR r_dot')
-plt.plot(t[low_bound:up_bound],hopf_vars_dot[3,low_bound:up_bound], label='FR phi_dot')
+plt.plot(t[low_bound:up_bound],hopf_vars_dot[2,low_bound:up_bound], label='FL r_dot')
+plt.plot(t[low_bound:up_bound],hopf_vars_dot[3,low_bound:up_bound], label='FL phi_dot')
 plt.grid(which='both')
 plt.legend()
 
@@ -223,10 +226,10 @@ plt.grid(which='both')
 plt.legend()
 
 plt.subplot(2, 2, 4)
-plt.plot(t[low_bound:up_bound],hopf_vars[6,low_bound:up_bound], label='RR r')
-plt.plot(t[low_bound:up_bound],hopf_vars[7,low_bound:up_bound], label='RR phi')
-plt.plot(t[low_bound:up_bound],hopf_vars_dot[6,low_bound:up_bound], label='FR r_dot')
-plt.plot(t[low_bound:up_bound],hopf_vars_dot[7,low_bound:up_bound], label='FR phi_dot')
+plt.plot(t[low_bound:up_bound],hopf_vars[6,low_bound:up_bound], label='RL r')
+plt.plot(t[low_bound:up_bound],hopf_vars[7,low_bound:up_bound], label='RL phi')
+plt.plot(t[low_bound:up_bound],hopf_vars_dot[6,low_bound:up_bound], label='RL r_dot')
+plt.plot(t[low_bound:up_bound],hopf_vars_dot[7,low_bound:up_bound], label='RL phi_dot')
 plt.grid(which='both')
 plt.legend()
 plt.show()
@@ -295,3 +298,7 @@ plt.title('Desired vs Actual Calf Position')
 plt.legend()
 plt.tight_layout()
 plt.show()
+
+#Printing performance characteristics 
+print('Average forward body velocity: ',average_body_vel)
+
