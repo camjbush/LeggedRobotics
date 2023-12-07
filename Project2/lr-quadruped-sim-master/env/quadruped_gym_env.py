@@ -434,6 +434,7 @@ class QuadrupedGymEnv(gym.Env):
     # get Cartesian kp and kd gains (can be modified)
     kpCartesian = self._robot_config.kpCartesian
     kdCartesian = self._robot_config.kdCartesian
+    
     # get current motor velocities
     qd = self.robot.GetMotorVelocities()
 
