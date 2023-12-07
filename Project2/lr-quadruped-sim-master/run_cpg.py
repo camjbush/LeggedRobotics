@@ -91,8 +91,14 @@ kd=np.array([2,2,2])
 # Cartesian PD gains
 kpCartesian = np.diag([500]*3)
 kdCartesian = np.diag([20]*3)
+
+#Setup of tracked states
 des_foot_pos = np.zeros([3,TEST_STEPS])
 actual_foot_pos = np.zeros([3,TEST_STEPS])
+des_joint_pos = np.zeros([3,TEST_STEPS])
+actual_joint_pos = np.zeros([3,TEST_STEPS])
+
+
 for j in range(TEST_STEPS):
   # initialize torque array to send to motors
   action = np.zeros(12) 
@@ -102,10 +108,13 @@ for j in range(TEST_STEPS):
   des_foot_pos[0,j],des_foot_pos[2,j] = xs[0],zs[0]
   _, actual_foot_pos[:,j] = env.robot.ComputeJacobianAndPosition(0)
 
-
   # [TODO] get current motor angles and velocities for joint PD, see GetMotorAngles(), GetMotorVelocities() in quadruped.py____ DONE
   q = env.robot.GetMotorAngles()
-  dq = env.robot.GetMotorVelocities() 
+  dq = env.robot.GetMotorVelocities()
+  #print(np.shape(q[0:3]))
+  #print(np.shape(actual_joint_pos[:,j]))
+  actual_joint_pos[:,j] = q[0:3]
+  des_joint_pos[:,j] = env.robot.ComputeInverseKinematics(0,np.array([xs[0],sideSign[0] * foot_y,zs[0]]))
 
   # loop through desired foot positions and calculate torques
   for i in range(4):
@@ -117,9 +126,9 @@ for j in range(TEST_STEPS):
     leg_q = env.robot.ComputeInverseKinematics(i,leg_xyz) # [TODO] 
     # Add joint PD contribution to tau for leg i (Equation 4)
     dq_des = np.zeros(3)
-    tau += kp*(leg_q-q[i*3:i*3+3])+kd*(dq_des-dq[i*3:i*3+3]) # [TODO] 
+    tau += kp*(leg_q-q[i*3:i*3+3])+kd*(dq_des-dq[i*3:i*3+3]) # [TODO]
 
-    # add Cartesian PD contribution (HAVENT COMPLETED YET)
+    # add Cartesian PD contribution
     if ADD_CARTESIAN_PD:
       # Get current Jacobian and foot position in leg frame (see ComputeJacobianAndPosition() in quadruped.py)
       J , foot_pos = env.robot.ComputeJacobianAndPosition(i)
@@ -143,6 +152,12 @@ for j in range(TEST_STEPS):
   hopf_vars_dot[:,j] = cpg.X_dot[0:2,:].flatten('F')
   rob_vel[:,j] = env.robot.GetBaseLinearVelocity()
   average_body_vel = np.average(rob_vel)
+
+
+
+
+
+
   # time.sleep(0.01)
 
 step_times = find_local_minima(hopf_vars[1,:])
@@ -181,6 +196,7 @@ plt.legend()
 
 
 #####################################################
+#Plot of CPG states for one leg 
 plt.figure()
 plt.subplot(2, 2, 1)
 plt.plot(t[low_bound:up_bound],hopf_vars[0,low_bound:up_bound], label='FR r')
@@ -215,26 +231,8 @@ plt.grid(which='both')
 plt.legend()
 plt.show()
 
-plt.figure()
-plt.subplot(1,2,1)
-plt.plot(t,des_foot_pos[0],label='x position of foot')
-plt.plot(t,des_foot_pos[1],label='y position of foot')
-plt.plot(t,des_foot_pos[2],label='z position of foot')
-plt.subplot(1,2,2)
-plt.plot(t,actual_foot_pos[0],label='x position of foot')
-plt.plot(t,actual_foot_pos[1],label='y position of foot')
-plt.plot(t,actual_foot_pos[2],label='z position of foot')
-plt.legend()
-plt.show()
-
-
-print('Desired foot position: ',des_foot_pos)
-print('Actual foot position: ',actual_foot_pos)
-
-
-
-
-plt.figure()
+#3D Plot
+'''plt.figure()
 ax = plt.axes(projection='3d')
 # Plotting points in 3D
 ax.scatter(des_foot_pos[0], des_foot_pos[1], des_foot_pos[2], c='blue', marker='o', label='Desired Foot Position')
@@ -251,4 +249,49 @@ ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
 
 plt.legend()
+plt.show()'''
+
+#Plot of actual foot position vs desired foot position for one leg
+plt.figure()
+plt.subplot(3,1,1)
+plt.plot(t,des_foot_pos[0],label='Desired x position')
+plt.plot(t,actual_foot_pos[0],label='Actual x position')
+plt.title('Desired vs Actual Foot position in X')
+plt.legend()
+
+plt.subplot(3,1,2)
+plt.plot(t,des_foot_pos[1],label='Desired y position')
+plt.plot(t,actual_foot_pos[1],label='Actual y position')
+plt.title('Desired vs Actual Foot position in Y')
+plt.legend()
+
+plt.subplot(3,1,3)
+plt.plot(t,des_foot_pos[2],label='Desired z position')
+plt.plot(t,actual_foot_pos[2],label='Actual z position')
+plt.title('Desired vs Actual Foot position in Z')
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+
+#Plot of Actual Joint angles vs Desired Joint angles for one leg
+plt.figure()
+plt.subplot(3,1,1)
+plt.plot(t,des_joint_pos[0],label='Desired hip position')
+plt.plot(t,actual_joint_pos[0],label='Actual hip position')
+plt.title('Actual vs Desired Hip Positions')
+plt.legend()
+
+plt.subplot(3,1,2)
+plt.plot(t,des_joint_pos[1],label='Desired Thigh position')
+plt.plot(t,actual_joint_pos[1],label='Actual Thigh position')
+plt.title('Actual vs Desired Thigh Positions')
+plt.legend()
+
+plt.subplot(3,1,3)
+plt.plot(t,des_joint_pos[2],label='Desired Calf position')
+plt.plot(t,actual_joint_pos[2],label='Actual Calf position')
+plt.title('Desired vs Actual Calf Position')
+plt.legend()
+plt.tight_layout()
 plt.show()
